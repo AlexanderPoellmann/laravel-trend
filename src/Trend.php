@@ -4,10 +4,10 @@ namespace Flowframe\Trend;
 
 use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
-use Error;
 use Flowframe\Trend\Adapters\MySqlAdapter;
 use Flowframe\Trend\Adapters\PgsqlAdapter;
 use Flowframe\Trend\Adapters\SqliteAdapter;
+use Flowframe\Trend\Exceptions\TrendException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -212,7 +212,7 @@ class Trend
             'mysql', 'mariadb' => new MySqlAdapter(),
             'sqlite' => new SqliteAdapter(),
             'pgsql' => new PgsqlAdapter(),
-            default => throw new Error('Unsupported database driver.'),
+            default => throw TrendException::unsupportedDriver($this->getDriverName()),
         };
 
         return $adapter->format($this->dateColumn, $this->interval, $this->intervalCount);

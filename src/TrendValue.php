@@ -3,6 +3,7 @@
 namespace Flowframe\Trend;
 
 use Carbon\CarbonImmutable;
+use Flowframe\Trend\Exceptions\TrendException;
 
 class TrendValue
 {
@@ -45,10 +46,10 @@ class TrendValue
             'week' => 'Y-W',
             'month' => 'Y-m',
             'year' => 'Y',
-            default => throw new Error('Invalid interval.'),
+            default => throw TrendException::invalidInterval($this->interval),
         };
 
-        return $dateTime->format($format);
+        return $dateTime->translatedFormat($format);
     }
 
     public function getDateTime(): CarbonImmutable

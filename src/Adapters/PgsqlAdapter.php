@@ -2,7 +2,7 @@
 
 namespace Flowframe\Trend\Adapters;
 
-use Error;
+use Flowframe\Trend\Exceptions\TrendException;
 
 /**
  * @see https://www.postgresql.org/docs/18/functions-datetime.html#FUNCTIONS-DATETIME-TRUNC
@@ -32,7 +32,7 @@ class PgsqlAdapter extends AbstractAdapter
         }
 
         if (! in_array($interval, $this->precisions)) {
-            throw new Error('Invalid interval.');
+            throw TrendException::invalidInterval($interval);
         }
 
         return "date_trunc('$interval', \"$column\")";

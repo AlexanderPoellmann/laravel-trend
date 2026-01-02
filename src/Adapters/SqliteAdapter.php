@@ -2,7 +2,7 @@
 
 namespace Flowframe\Trend\Adapters;
 
-use Error;
+use Flowframe\Trend\Exceptions\TrendException;
 
 class SqliteAdapter extends AbstractAdapter
 {
@@ -15,7 +15,7 @@ class SqliteAdapter extends AbstractAdapter
             'week' => '%Y-%W',
             'month' => '%Y-%m',
             'year' => '%Y',
-            default => throw new Error('Invalid interval.'),
+            default => throw TrendException::invalidInterval($interval),
         };
 
         return "strftime('{$format}', {$column})";

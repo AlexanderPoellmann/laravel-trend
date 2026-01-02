@@ -2,7 +2,7 @@
 
 namespace Flowframe\Trend\Adapters;
 
-use Error;
+use Flowframe\Trend\Exceptions\TrendException;
 
 class MySqlAdapter extends AbstractAdapter
 {
@@ -15,7 +15,7 @@ class MySqlAdapter extends AbstractAdapter
             'week' => '%Y-%u',
             'month' => '%Y-%m',
             'year' => '%Y',
-            default => throw new Error('Invalid interval.'),
+            default => throw TrendException::invalidInterval($interval),
         };
 
         return "date_format({$column}, '{$format}')";
