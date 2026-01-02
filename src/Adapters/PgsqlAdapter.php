@@ -4,20 +4,37 @@ namespace Flowframe\Trend\Adapters;
 
 use Error;
 
+/**
+ * @see https://www.postgresql.org/docs/18/functions-datetime.html#FUNCTIONS-DATETIME-TRUNC
+ * @see https://www.postgresql.org/docs/18/functions-datetime.html#FUNCTIONS-DATETIME-BIN
+ */
 class PgsqlAdapter extends AbstractAdapter
 {
-    public function format(string $column, string $interval): string
-    {
-        $format = match ($interval) {
-            'minute' => 'YYYY-MM-DD HH24:MI:00',
-            'hour' => 'YYYY-MM-DD HH24:00:00',
-            'day' => 'YYYY-MM-DD',
-            'week' => 'IYYY-IW',
-            'month' => 'YYYY-MM',
-            'year' => 'YYYY',
-            default => throw new Error('Invalid interval.'),
-        };
+    public array $precisions = [
+        'milliseconds',
+        'second',
+        'minute',
+        'hour',
+        'day',
+        'week',
+        'month',
+        'quarter',
+        'year',
+        'decade',
+        'century',
+        'millennium',
+    ];
 
-        return "to_char(\"{$column}\", '{$format}')";
+    public function format(string $column, string $interval, int $intervalCount = 1): string
+    {
+        if ($interval === 'minutes') {
+            return "date_bin('$intervalCount $interval', \"$column\", TIMESTAMP '1900-01-01')";
+        }
+
+        if (! in_array($interval, $this->precisions)) {
+            throw new Error('Invalid interval.');
+        }
+
+        return "date_trunc('$interval', \"$column\")";
     }
 }

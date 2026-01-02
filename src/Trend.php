@@ -15,6 +15,8 @@ class Trend
 {
     public string $interval;
 
+    public int $intervalCount = 1;
+
     public CarbonInterface $start;
 
     public CarbonInterface $end;
@@ -23,9 +25,7 @@ class Trend
 
     public string $dateAlias = 'date';
 
-    public function __construct(public Builder $builder)
-    {
-    }
+    public function __construct(public Builder $builder) {}
 
     public static function query(Builder $builder): self
     {
@@ -52,9 +52,34 @@ class Trend
         return $this;
     }
 
+    public function intervalCount(int $intervalCount = 1): self
+    {
+        $this->intervalCount = $intervalCount;
+
+        return $this;
+    }
+
     public function perMinute(): self
     {
         return $this->interval('minute');
+    }
+
+    public function perMinutes(int $minutes): self
+    {
+        if ($minutes < 1) {
+            $minutes = 1;
+        }
+
+        if ($minutes === 1) {
+            return $this->perMinute();
+        }
+
+        return $this->intervalCount($minutes)->interval('minutes');
+    }
+
+    public function perQuarterOfHour(): self
+    {
+        return $this->perMinutes(15);
     }
 
     public function perHour(): self
@@ -98,11 +123,17 @@ class Trend
 
     public function aggregate(string $column, string $aggregate): Collection
     {
-        $values = $this->builder
-            ->toBase()
+        $query = $this->builder
+            ->toBase();
+
+        if ($this->interval === 'minutes' && $this->getDriverName() !== 'pgsql') {
+            $query = $query->whereRaw("MINUTE($column) % $this->intervalCount = 0");
+        }
+
+        $values = $query
             ->selectRaw("
-                {$this->getSqlDate()} as {$this->dateAlias},
-                {$aggregate}({$column}) as aggregate
+                {$this->getSqlDate()} as $this->dateAlias,
+                $aggregate($column) as aggregate
             ")
             ->whereBetween($this->dateColumn, [$this->start, $this->end])
             ->groupBy($this->dateAlias)
@@ -141,12 +172,14 @@ class Trend
     {
         $values = $values->map(fn ($value) => new TrendValue(
             date: $value->{$this->dateAlias},
+            interval: $this->interval,
             aggregate: $value->aggregate,
         ));
 
         $placeholders = $this->getDatePeriod()->map(
             fn (CarbonInterface $date) => new TrendValue(
                 date: $date->format($this->getCarbonDateFormat()),
+                interval: $this->interval,
                 aggregate: 0,
             )
         );
@@ -164,32 +197,34 @@ class Trend
             CarbonPeriod::between(
                 $this->start,
                 $this->end,
-            )->interval("1 {$this->interval}")
+            )->interval($this->getCarbonInterval())
         );
+    }
+
+    protected function getDriverName(): string
+    {
+        return $this->builder->getConnection()->getDriverName();
     }
 
     protected function getSqlDate(): string
     {
-        $adapter = match ($this->builder->getConnection()->getDriverName()) {
+        $adapter = match ($this->getDriverName()) {
             'mysql', 'mariadb' => new MySqlAdapter(),
             'sqlite' => new SqliteAdapter(),
             'pgsql' => new PgsqlAdapter(),
             default => throw new Error('Unsupported database driver.'),
         };
 
-        return $adapter->format($this->dateColumn, $this->interval);
+        return $adapter->format($this->dateColumn, $this->interval, $this->intervalCount);
     }
 
     protected function getCarbonDateFormat(): string
     {
-        return match ($this->interval) {
-            'minute' => 'Y-m-d H:i:00',
-            'hour' => 'Y-m-d H:00',
-            'day' => 'Y-m-d',
-            'week' => 'Y-W',
-            'month' => 'Y-m',
-            'year' => 'Y',
-            default => throw new Error('Invalid interval.'),
-        };
+        return 'Y-m-d H:i:s';
+    }
+
+    protected function getCarbonInterval(): string
+    {
+        return "$this->intervalCount $this->interval";
     }
 }
